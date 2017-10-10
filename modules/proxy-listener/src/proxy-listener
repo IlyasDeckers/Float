@@ -1,0 +1,81 @@
+#!/usr/bin/python
+
+import sys
+import time
+import json
+import logging
+import subprocess
+from classes import Nginx, Consul
+from watchdog.observers import Observer  
+from watchdog.events import PatternMatchingEventHandler
+
+class Config():
+  def __init__(self):
+    self.config_file = '/etc/float/config.json'
+
+  def read(self):
+    o = open(self.config_file)
+    with o as json_data_file:
+        data = json.load(json_data_file)
+    return data
+    o.close()
+
+config = Config().read()
+logging.basicConfig(filename=config['settings']['log_file'],
+                      filemode='a',
+                      format='%(asctime)s [ %(levelname)s ] - %(message)s',
+                      datefmt='%m/%d/%Y  %H:%M:%S',
+                      level=config['settings']['log_level'])
+
+class NginxHandler(PatternMatchingEventHandler):
+    patterns = ["*.conf", "*.cnf"]
+
+    def process(self, event):
+        logging.info('PROXY-LISTENER: Vhost configuration has changed reloading Nginx')
+        time.sleep(5)
+        subprocess.call(['systemctl', 'reload', 'nginx'])
+
+    def on_modified(self, event):
+        self.process(event)
+
+    # def on_created(self, event):
+    #     self.process(event)
+
+    def on_deleted(self,event):
+        self.process(event)
+
+logging.info('PROXY-LISTENER: Vhost configuration has changed reloading Nginx')
+args = sys.argv[1:]
+observer = Observer()
+observer.schedule(NginxHandler(), path='/etc/nginx/sites-enabled/')
+observer.start()
+
+try:
+  while True:
+      sites_enabled = Nginx().get_sites_enabled()
+      consul_vhosts = Consul().get_vhosts()
+
+      for vhost in consul_vhosts:
+          Nginx().create_vhost(vhost, sites_enabled)
+
+      consul_domains = []
+      for vhost in consul_vhosts:
+          domain = vhost['ServiceTags'][0]
+          consul_domains.append(domain)
+
+      consul_domains = map(( lambda x: x + '.conf'), consul_domains)
+
+      # Check if there are dangling vhosts
+      if sites_enabled != consul_domains:
+        delete_vhost = sorted(set(sites_enabled) - set(consul_domains))
+      else:
+        delete_vhost = []
+
+      if delete_vhost != []:
+          Nginx().delete_vhost(delete_vhost)
+
+      time.sleep(20)
+except KeyboardInterrupt:
+    observer.stop()
+
+observer.join()

@@ -1,0 +1,38 @@
+###
+# Network
+###
+
+docker network create \
+    --attachable \
+    -d overlay \
+    --subnet 10.100.100.0/24 \
+    proxy-network
+
+docker network create \
+    --attachable \
+    -d overlay \
+    --subnet 10.100.200.0/24 \
+    app-network
+
+
+###
+# Docker containers
+###
+
+# start the proxy service
+docker service create \
+    --network proxy-network \
+    --publish 80 \
+    --publish 443 \
+    --name float-nginx \
+    phasehosting/float-nginx
+
+# Letsencrypt bot
+
+# Docker service discovery
+
+# Start the proxmox service discovery
+docker run -d \
+    --name float-proxmox \
+    --net=host \
+    phasehosting/float-proxmox

@@ -1,0 +1,4 @@
+*.pyc
+etc/float/config.json
+dist/
+build/
