@@ -1,0 +1,29 @@
+#!/bin/python 
+
+import sys
+import argparse
+import subprocess
+
+parser=argparse.ArgumentParser(
+    description='''Shared web hosting using Docker Swarm as a backend. ''',
+    epilog="""All's well that ends well.""")
+parser.add_argument('-m', '--monitor', help="Show Float logs", action="store_true")
+parser.add_argument('-s', '--start', help='FOO!', action="store_true")
+args = parser.parse_args()
+
+def CMD(cmd) :
+    return subprocess.Popen(cmd, shell=True,
+                         stdin=subprocess.PIPE,
+                         stdout=subprocess.PIPE,
+                         stderr=subprocess.PIPE,
+                         close_fds=False)
+
+if args.start:
+    print "Starting Float..."
+    print "Starting Nginx"
+    p = CMD(['sudo', 'systemctl', 'start', 'nginx'])
+    print "Starting proxy-listener..."
+    subprocess.call(['proxy-listener'])
+
+if args.monitor:
+    print "Logs"

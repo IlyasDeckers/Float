@@ -24,8 +24,23 @@ class HomeController extends Controller
      */
     public function index()
     {
-        $consul = Consul::getHealthClient()->getHealthyServicesInstances('proxmox');
-        dd($consul);
-        return view('home', ['consul' => $consul ]);
+        return view('home');
+    }
+
+    public function consul()
+    {
+        $consul = Consul::getHealthClient()->getHealthyServicesInstances('proxmox-80');
+        return view('consul', ['consul' => $consul ]);
+    }
+
+    public function logs()
+    {
+        $file='/var/log/float/float.log';
+        $lastpos = 0;
+        $logs = file($file, FILE_IGNORE_NEW_LINES);
+
+        /*dd($logs);*/
+
+        return view('logs', ['logs' => array_slice($logs, '-30') ]);
     }
 }
