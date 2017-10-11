@@ -66,20 +66,26 @@
                             <ul class="nav">
                                 <li>
                                     <a href="{{ route('containers') }}">
-                                        <span class="sidebar-mini">RT</span>
+                                        <span class="sidebar-mini">CO</span>
                                         <span class="sidebar-normal">Containers</span>
                                     </a>
                                 </li>
                                 <li>
-                                    <a href="../tables/extended.html">
-                                        <span class="sidebar-mini">ET</span>
+                                    <a href="{{ route('images') }}">
+                                        <span class="sidebar-mini">VO</span>
+                                        <span class="sidebar-normal">Images</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#">
+                                        <span class="sidebar-mini">NE</span>
                                         <span class="sidebar-normal">Networks</span>
                                     </a>
                                 </li>
                                 <li>
-                                    <a href="../tables/datatables.net.html">
-                                        <span class="sidebar-mini">DT</span>
-                                        <span class="sidebar-normal">volumes</span>
+                                    <a href="#">
+                                        <span class="sidebar-mini">VO</span>
+                                        <span class="sidebar-normal">Volumes</span>
                                     </a>
                                 </li>
                             </ul>
