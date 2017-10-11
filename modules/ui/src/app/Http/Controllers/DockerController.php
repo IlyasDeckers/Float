@@ -60,7 +60,7 @@ class DockerController extends Controller
 
     public function createContainerPage()
     {   
-        dd('create_container');
+        return view('createcontainer');
     }
 
     public function createContainer()

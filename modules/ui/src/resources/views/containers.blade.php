@@ -54,10 +54,10 @@
                 </div>
             </div>
             <div class="card-footer text-right">
-                <button class="btn btn-info btn-round btn-fab btn-fab-mini">
+                <a href="{{ route('createContainerPage') }}" class="btn btn-info btn-round btn-fab btn-fab-mini">
                     <i class="material-icons">add</i>
                     <div class="ripple-container"></div>
-                </button>
+                </a>
             </div>
         </div>
     </div>
