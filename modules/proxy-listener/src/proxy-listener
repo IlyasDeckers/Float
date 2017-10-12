@@ -33,7 +33,7 @@ class NginxHandler(PatternMatchingEventHandler):
     def process(self, event):
         logging.info('PROXY-LISTENER: Vhost configuration has changed reloading Nginx')
         time.sleep(5)
-        subprocess.call(['systemctl', 'reload', 'nginx'])
+        subprocess.call(['nginx', '-s', 'reload'])
 
     def on_modified(self, event):
         self.process(event)
@@ -57,6 +57,7 @@ try:
 
       for vhost in consul_vhosts:
           Nginx().create_vhost(vhost, sites_enabled)
+          
 
       consul_domains = []
       for vhost in consul_vhosts:
@@ -74,7 +75,7 @@ try:
       if delete_vhost != []:
           Nginx().delete_vhost(delete_vhost)
 
-      time.sleep(20)
+      time.sleep(5)
 except KeyboardInterrupt:
     observer.stop()
 

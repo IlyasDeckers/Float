@@ -14,6 +14,7 @@ class Nginx():
         
         # Create vhost if it does not exist in nginx
         if domain + '.conf' not in vhostConf:
+            self.add_temp_cert(vhost)
             template = open(template,'r').read()
 
             config = template.format(ip = '0.0.0.0', 
@@ -36,3 +37,12 @@ class Nginx():
         Return a list of available vhost files in nginx
         '''
         return [x for x in os.listdir(self.sites_enabled) if x.endswith(".conf")]
+
+    def add_temp_cert(self, vhost):
+        domain = vhost['ServiceTags'][0].split(' ',1)[0]
+        print domain
+        subprocess.call(['mkdir', '-p', '/etc/nginx/ssl/' + domain])
+        subprocess.call(['ln', '-s', '/etc/nginx/ssl/nginx.crt', '/etc/nginx/ssl/' + domain + '/cert.pem'])
+        subprocess.call(['ln', '-s', '/etc/nginx/ssl/nginx.key', '/etc/nginx/ssl/' + domain + '/privkey.pem'])
+        # os.symlink('/etc/nginx/ssl/nginx.cert', '/etc/nginx/ssl/' + domain + '/cert.pem')
+        # os.symlink('/etc/nginx/ssl/nginx.key', '/etc/nginx/ssl/' + domain + '/privkey.pem')
