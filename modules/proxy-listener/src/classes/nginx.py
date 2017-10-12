@@ -39,10 +39,22 @@ class Nginx():
         return [x for x in os.listdir(self.sites_enabled) if x.endswith(".conf")]
 
     def add_temp_cert(self, vhost):
+        '''
+        Create a symbolic link to provide a temporary ssl certificate 
+        for the new vhost untill a valid one has been installed
+        '''
         domain = vhost['ServiceTags'][0].split(' ',1)[0]
-        print domain
-        subprocess.call(['mkdir', '-p', '/etc/nginx/ssl/' + domain])
-        subprocess.call(['ln', '-s', '/etc/nginx/ssl/nginx.crt', '/etc/nginx/ssl/' + domain + '/cert.pem'])
-        subprocess.call(['ln', '-s', '/etc/nginx/ssl/nginx.key', '/etc/nginx/ssl/' + domain + '/privkey.pem'])
-        # os.symlink('/etc/nginx/ssl/nginx.cert', '/etc/nginx/ssl/' + domain + '/cert.pem')
-        # os.symlink('/etc/nginx/ssl/nginx.key', '/etc/nginx/ssl/' + domain + '/privkey.pem')
+        if not os.path.isfile('/etc/nginx/ssl/' + domain + '/cert.pem') and not os.path.isfile('/etc/nginx/ssl/' + domain + '/privkey.pem'):
+            subprocess.call(['mkdir', '-p', '/etc/nginx/ssl/' + domain])
+            subprocess.call(['ln', '-s', '/etc/nginx/ssl/nginx.crt', '/etc/nginx/ssl/' + domain + '/cert.pem'])
+            subprocess.call(['ln', '-s', '/etc/nginx/ssl/nginx.key', '/etc/nginx/ssl/' + domain + '/privkey.pem'])
+
+    def add__letsencrypt_cert(self, vhost):
+        '''
+        Create a symbolic link to /etc/nginx/ssl for the obtained ssl certificate
+        '''
+        domain = vhost['ServiceTags'][0].split(' ',1)[0]
+        if not os.path.isfile('/etc/letsencrypt/live/' + domain + '/cert.pem') and os.path.isfile('/etc/letsencrypt/live/' + domain + '/privkey.pem'):
+            subprocess.call(['rm', '-f', '/etc/nginx/ssl/' + domain + '/*'])
+            subprocess.call(['ln', '-s', '/etc/letsencrypt/live/' + domain + '/cert.pem', '/etc/nginx/ssl/' + domain + '/cert.pem'])
+            subprocess.call(['ln', '-s', '/etc/letsencrypt/live/' + domain + '/privkey.pem', '/etc/nginx/ssl/' + domain + '/privkey.pem'])

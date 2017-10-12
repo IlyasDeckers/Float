@@ -32,7 +32,7 @@ class NginxHandler(PatternMatchingEventHandler):
 
     def process(self, event):
         logging.info('PROXY-LISTENER: Vhost configuration has changed reloading Nginx')
-        time.sleep(5)
+        time.sleep(1)
         subprocess.call(['nginx', '-s', 'reload'])
 
     def on_modified(self, event):
@@ -44,11 +44,33 @@ class NginxHandler(PatternMatchingEventHandler):
     def on_deleted(self,event):
         self.process(event)
 
-logging.info('PROXY-LISTENER: Vhost configuration has changed reloading Nginx')
+class SslHandler(PatternMatchingEventHandler):
+    patterns = ["*.pem", "*.crt", ".key"]
+
+    def process(self, event):
+        logging.info('PROXY-LISTENER: SSL certificate updated, reloading nginx')
+        subprocess.call(['nginx', '-s', 'reload'])
+
+    def on_modified(self, event):
+        self.process(event)
+
+    # def on_created(self, event):
+    #     self.process(event)
+
+    def on_deleted(self,event):
+        self.process(event)
+
+logging.info('PROXY-LISTENER: Starting Proxy Listener')
 args = sys.argv[1:]
 observer = Observer()
 observer.schedule(NginxHandler(), path='/etc/nginx/sites-enabled/')
 observer.start()
+logging.info('PROXY-LISTENER: Nginx vhost watcher started')
+
+observer = Observer()
+observer.schedule(SslHandler(), path='/etc/nginx/ssl/', recursive=True)
+observer.start()
+logging.info('PROXY-LISTENER: Nginx certificate watcher started')
 
 try:
   while True:
