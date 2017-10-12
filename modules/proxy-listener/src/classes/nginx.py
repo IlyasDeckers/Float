@@ -45,6 +45,7 @@ class Nginx():
         '''
         domain = vhost['ServiceTags'][0].split(' ',1)[0]
         if not os.path.isfile('/etc/nginx/ssl/' + domain + '/cert.pem') and not os.path.isfile('/etc/nginx/ssl/' + domain + '/privkey.pem'):
+            logging.info('PROXY-LISTENER: Installing temporary SSL certificate for ' + domain + '.')
             subprocess.call(['mkdir', '-p', '/etc/nginx/ssl/' + domain])
             subprocess.call(['ln', '-s', '/etc/nginx/ssl/nginx.crt', '/etc/nginx/ssl/' + domain + '/cert.pem'])
             subprocess.call(['ln', '-s', '/etc/nginx/ssl/nginx.key', '/etc/nginx/ssl/' + domain + '/privkey.pem'])
@@ -54,7 +55,7 @@ class Nginx():
         Create a symbolic link to /etc/nginx/ssl for the obtained ssl certificate
         '''
         domain = vhost['ServiceTags'][0].split(' ',1)[0]
-        if not os.path.isfile('/etc/letsencrypt/live/' + domain + '/cert.pem') and os.path.isfile('/etc/letsencrypt/live/' + domain + '/privkey.pem'):
+        if not os.path.isfile('/etc/letsencrypt/live/' + domain + '/cert.pem') and not os.path.isfile('/etc/letsencrypt/live/' + domain + '/privkey.pem'):
             subprocess.call(['rm', '-f', '/etc/nginx/ssl/' + domain + '/*'])
             subprocess.call(['ln', '-s', '/etc/letsencrypt/live/' + domain + '/cert.pem', '/etc/nginx/ssl/' + domain + '/cert.pem'])
             subprocess.call(['ln', '-s', '/etc/letsencrypt/live/' + domain + '/privkey.pem', '/etc/nginx/ssl/' + domain + '/privkey.pem'])

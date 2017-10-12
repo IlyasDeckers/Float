@@ -72,6 +72,10 @@ observer.schedule(SslHandler(), path='/etc/nginx/ssl/', recursive=True)
 observer.start()
 logging.info('PROXY-LISTENER: Nginx certificate watcher started')
 
+def letsencrypt():
+  if not os.path.isfile('/etc/letsencrypt/live/' + domain + '/cert.pem') and not os.path.isfile('/etc/letsencrypt/live/' + domain + '/privkey.pem'):
+    logging.info('PROXY-LISTENER: Creating cerificate for ' + domain + ' with letsencryot')
+
 try:
   while True:
       sites_enabled = Nginx().get_sites_enabled()
@@ -79,6 +83,7 @@ try:
 
       for vhost in consul_vhosts:
           Nginx().create_vhost(vhost, sites_enabled)
+          letsencrypt(vhost['ServiceTags'][0].split(' ',1)[0])
           
 
       consul_domains = []
