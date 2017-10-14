@@ -4,6 +4,7 @@ import time
 import json
 import logging
 import subprocess
+from api import ProxyApi
 from classes import Nginx, Consul
 from watchers import Watcher
 
@@ -24,6 +25,8 @@ logging.basicConfig(filename=config['settings']['log_file'],
                     format='%(asctime)s [ %(levelname)s ] - %(message)s',
                     datefmt='%m/%d/%Y  %H:%M:%S',
                     level=config['settings']['log_level'])
+
+ProxyApi().start()
 
 try:
   while True:

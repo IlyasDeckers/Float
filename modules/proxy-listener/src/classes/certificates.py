@@ -20,6 +20,8 @@ class Certificates():
             
             Cmd().execute(cmd)
 
+        logging.info('PROXY-LISTENER: Temporary certificate already present for ' + self.domain + '.')
+
     def add_letsencrypt_cert(self):
         '''
         Create a symbolic link to /etc/nginx/ssl for the obtained ssl certificate
