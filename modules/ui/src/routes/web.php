@@ -17,18 +17,21 @@ Route::get('/', function () {
 
 Auth::routes();
 
-Route::get('/home', 'HomeController@index')->name('home');
-Route::get('/home/consul', 'HomeController@consul')->name('consul');
-Route::get('/home/logs', 'HomeController@logs')->name('logs');
+Route::get('/', 'HomeController@index')->name('home');
+Route::get('/consul', 'HomeController@consul')->name('consul');
+Route::get('/logs', 'HomeController@logs')->name('logs');
 
-Route::get('/home/docker/containers', 'Docker\ContainerController@containersPage')->name('containers');
+Route::get('/docker/containers', 'Docker\ContainerController@containersPage')->name('containers');
 
-Route::get('/home/docker/container/create', 'Docker\ContainerController@createPage')->name('createContainerPage');
-Route::post('/home/docker/container/create', 'Docker\ContainerController@createContainer')->name('createContainer');
+Route::get('/docker/container/create', 'Docker\ContainerController@createPage')->name('createContainerPage');
+Route::post('/docker/container/create', 'Docker\ContainerController@createContainer')->name('createContainer');
 
-Route::get('/home/docker/container/{id}', 'Docker\ContainerController@containerPage')->name('container');
-Route::post('/home/docker/container/start', 'Docker\ContainerController@startContainer')->name('startContainer');
-Route::post('/home/docker/container/stop', 'Docker\ContainerController@stopContainer')->name('stopContainer');
-Route::post('/home/docker/container/pause', 'Docker\ContainerController@pauseContainer')->name('pauseContainer');
+Route::get('/docker/container/{id}', 'Docker\ContainerController@containerPage')->name('container');
+Route::post('/docker/container/start', 'Docker\ContainerController@startContainer')->name('startContainer');
+Route::post('/docker/container/stop', 'Docker\ContainerController@stopContainer')->name('stopContainer');
+Route::post('/docker/container/pause', 'Docker\ContainerController@pauseContainer')->name('pauseContainer');
 
-Route::get('/home/docker/images', 'Docker\ImageController@imagesPage')->name('images');
+Route::get('/docker/images', 'Docker\ImageController@imagesPage')->name('images');
+
+Route::get('/proxy', 'Proxy\ProxyController@index')->name('proxy');
+Route::get('/proxy/vhost', 'Proxy\ProxyController@getVhost')->name('vhost');

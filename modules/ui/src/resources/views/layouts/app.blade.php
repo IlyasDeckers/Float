@@ -44,7 +44,7 @@
                         </a>
                     </li>
                     <li class="">
-                        <a href="">
+                        <a href="{{ route('proxy') }}">
                             <i class="material-icons">subdirectory_arrow_right</i>
                             <p>Proxy</p>
                         </a>
