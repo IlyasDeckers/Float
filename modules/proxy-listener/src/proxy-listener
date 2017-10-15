@@ -1,23 +1,50 @@
 #!/usr/bin/python
 
+import os
 import time
 import json
+import uuid
+import thread
 import logging
 import subprocess
+import netifaces as ni
 from api import ProxyApi
-from classes import Nginx, Consul
+from classes import Nginx, Consul, Config
 from watchers import Watcher
 
-class Config():
-  def __init__(self):
-    self.config_file = '/etc/float/config.json'
+def listener():
+    while True:
+        sites_enabled = Nginx().get_sites_enabled()
+        consul_vhosts = Consul().get_vhosts()
 
-  def read(self):
-    o = open(self.config_file)
-    with o as json_data_file:
-        data = json.load(json_data_file)
-    return data
-    o.close()
+        for vhost in consul_vhosts:
+            Nginx().create_vhost(vhost, sites_enabled)
+            
+
+        consul_domains = []
+        for vhost in consul_vhosts:
+            domain = vhost['ServiceTags'][0]
+            consul_domains.append(domain)
+
+        consul_domains = map(( lambda x: x + '.conf'), consul_domains)
+
+        # Check if there are dangling vhosts
+        if sites_enabled != consul_domains:
+          delete_vhost = sorted(set(sites_enabled) - set(consul_domains))
+        else:
+          delete_vhost = []
+
+        if delete_vhost != []:
+            Nginx().delete_vhost(delete_vhost)
+
+        time.sleep(5)
+
+    observer.join()
+
+''' Create a pid file '''
+f = open('/tmp/proxy-listener.pid', 'w')
+f.write(str(os.getpid()))
+f.close()
 
 config = Config().read()
 logging.basicConfig(filename=config['settings']['log_file'],
@@ -26,35 +53,20 @@ logging.basicConfig(filename=config['settings']['log_file'],
                     datefmt='%m/%d/%Y  %H:%M:%S',
                     level=config['settings']['log_level'])
 
-ProxyApi().start()
+logging.info('PROXY-LISTENER: Starting proxy listener.')
 
+'''
+Start the API server
+'''
 try:
-  while True:
-    sites_enabled = Nginx().get_sites_enabled()
-    consul_vhosts = Consul().get_vhosts()
+    thread.start_new_thread(ProxyApi().start())
+except:
+    print 'error'
 
-    for vhost in consul_vhosts:
-        Nginx().create_vhost(vhost, sites_enabled)
-        
-
-    consul_domains = []
-    for vhost in consul_vhosts:
-        domain = vhost['ServiceTags'][0]
-        consul_domains.append(domain)
-
-    consul_domains = map(( lambda x: x + '.conf'), consul_domains)
-
-    # Check if there are dangling vhosts
-    if sites_enabled != consul_domains:
-      delete_vhost = sorted(set(sites_enabled) - set(consul_domains))
-    else:
-      delete_vhost = []
-
-    if delete_vhost != []:
-        Nginx().delete_vhost(delete_vhost)
-
-    time.sleep(5)
-except KeyboardInterrupt:
-    observer.stop()
-
-observer.join()
+'''
+Start the listener
+'''
+try:
+    thread.start_new_thread(listener())
+except:
+    print 'error'
