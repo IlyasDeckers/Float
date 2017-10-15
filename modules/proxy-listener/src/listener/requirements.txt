@@ -1,0 +1,5 @@
+flask
+flask_restful
+watchdog
+netifaces
+python-consul

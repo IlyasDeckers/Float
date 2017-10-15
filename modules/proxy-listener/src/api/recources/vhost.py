@@ -37,12 +37,7 @@ class Vhost(Resource):
         parser.add_argument('config', type=str, required=True, location='json')
 
         args = parser.parse_args(strict=True)
-        # return args
 
         file = open(self.path + args['vhost'], 'w')
         file.write(args['config'])
         file.close()
-
-        # args = parser.parse_args(strict=True)
-        # stat = self.stat(args['vhost'])
-        # response = []

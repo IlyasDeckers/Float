@@ -27,7 +27,7 @@
                                 <td>{{ $vhost->modified_on }}</td>
                                 <td class="td-actions text-right">
                                     
-                                    <a href=""  rel="tooltip" class="btn btn-info">
+                                    <a href="{{ route('vhost') }}"  rel="tooltip" class="btn btn-info">
                                         <i class="material-icons">edit</i>
                                     </a>
                                     <button type="button" rel="tooltip" class="btn btn-danger " data-toggle="modal" data-target="">

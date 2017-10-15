@@ -1,4 +1,8 @@
 #!/bin/python
+#
+import os
+import logging
+
 
 class Certificates():
     def __init__(self, domain):
