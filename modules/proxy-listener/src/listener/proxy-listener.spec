@@ -3,8 +3,8 @@
 block_cipher = None
 
 
-a = Analysis(['src/proxy-listener'],
-             pathex=['/home/ilyas/script/Float/modules/proxy-listener'],
+a = Analysis(['proxy-listener'],
+             pathex=['/home/ilyas/script/Float/modules/proxy-listener/src/listener'],
              binaries=[],
              datas=[],
              hiddenimports=[],

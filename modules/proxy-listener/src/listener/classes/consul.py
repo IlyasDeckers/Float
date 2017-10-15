@@ -17,7 +17,6 @@ class Consul():
         # self.c = self.connect()
         
     def connect(self, path):
-        print 'consul'
         try:
             return requests.get(self.api_url + path)
         except ConnectionError:

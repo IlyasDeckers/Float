@@ -2,6 +2,7 @@
 #
 import os
 import logging
+from cmd import Cmd
 
 
 class Certificates():
@@ -38,7 +39,7 @@ class Certificates():
             ]
             Cmd().execute(cmd)
 
-    def delete_cert():
+    def delete_cert(self):
         try:
             os.unlink('/etc/nginx/ssl/' + self.domain + '/cert.pem')
         except OSError as e:

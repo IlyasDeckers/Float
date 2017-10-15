@@ -36,6 +36,7 @@ def listener():
 
     observer.join()
 
+config = Config().read()
 logging.basicConfig(filename=config['settings']['log_file'],
                     filemode='a',
                     format='%(asctime)s [ %(levelname)s ] - %(message)s',

@@ -4,7 +4,6 @@ import json
 import logging
 from recources import *
 from flask import Flask
-from routes import routes
 from functools import wraps
 from flask_restful import Resource, Api
 

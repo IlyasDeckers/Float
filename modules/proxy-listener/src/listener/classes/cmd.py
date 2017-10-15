@@ -3,7 +3,7 @@
 import subprocess
 
 class Cmd():
-    def execute(self, cmd):
+    def execute(self, commands):
         response = subprocess.check_output(commands, shell=True)
         try:
             for command in commands:

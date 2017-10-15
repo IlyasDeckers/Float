@@ -16,7 +16,7 @@ class Nginx():
         
         # Create vhost if it does not exist in nginx
         if domain + '.conf' not in vhostConf:
-            logging.info('PROXY-LISTENER: Creating vhost ' + domain + '.conf domain')
+            logging.info('PROXY-LISTENER: Creating vhost ' + domain + '.conf')
             Certificates(domain).add_temp_cert()
             # self.letsencrypt(domain)
             template = open(template,'r').read()
