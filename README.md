@@ -1,6 +1,6 @@
 WORK IN PROGRESS
 
-Disclaimer: Not for production use! This is a proof of concept. I might develop it further in a more robust platform.
+Disclaimer: Not for production use! This is a proof of concept. I might develop it further to a more robust platform.
 
 # Float
 Shared web (application) hosting solution using Docker as a backend. 
