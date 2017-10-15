@@ -3,12 +3,8 @@
 import os
 import time
 import json
-import uuid
-from threading import Thread
 import logging
 import subprocess
-import netifaces as ni
-from api import ProxyApi
 from classes import Nginx, Consul, Config
 from watchers import Watcher
 
