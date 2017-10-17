@@ -1,29 +1,31 @@
-#!/bin/python 
+#!/usr/bin/python 
 
 import sys
 import argparse
 import subprocess
 
+
 parser=argparse.ArgumentParser(
-    description='''Shared web hosting using Docker Swarm as a backend. ''',
+    description='''Shared web/application hosting using Docker Swarm as a backend. ''',
     epilog="""All's well that ends well.""")
-parser.add_argument('-m', '--monitor', help="Show Float logs", action="store_true")
-parser.add_argument('-s', '--start', help='FOO!', action="store_true")
+# parser.add_argument('monitor', help="Show Float logs")
+parser.add_argument('--start', help='proxy-listener, proxy-api')
+parser.add_argument('--stop', help='proxy-listener, proxy-api')
+parser.add_argument('--reload', help='proxy-listener, proxy-api')
+parser.add_argument('--monitor', help='tail float logs',action='store_true')
 args = parser.parse_args()
 
-def CMD(cmd) :
-    return subprocess.Popen(cmd, shell=True,
-                         stdin=subprocess.PIPE,
-                         stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE,
-                         close_fds=False)
+try:
+    if args.start:
+        subprocess.call(['sudo', '/etc/init.d/' + args.start, 'start'])
 
-if args.start:
-    print "Starting Float..."
-    print "Starting Nginx"
-    p = CMD(['sudo', 'systemctl', 'start', 'nginx'])
-    print "Starting proxy-listener..."
-    subprocess.call(['proxy-listener'])
+    if args.stop:
+        subprocess.call(['sudo', '/etc/init.d/' + args.stop, 'stop'])
 
-if args.monitor:
-    print "Logs"
+    if args.reload:
+        subprocess.call(['sudo', '/etc/init.d/' + args.reload, 'reload'])
+
+    if args.monitor:
+       subprocess.call(['sudo', 'tail', '-f', '/var/log/float/float.log'])
+except KeyboardInterrupt:
+    sys.exit(1)

@@ -1,5 +1,6 @@
 #!/bin/python
 
+import logging
 from vhosthandler import VhostHandler
 from sslhandler import SslHandler
 from watchdog.observers import Observer

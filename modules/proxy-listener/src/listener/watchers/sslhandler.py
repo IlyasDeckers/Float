@@ -1,6 +1,7 @@
 #!/bin/python
 
 import time
+import logging
 import subprocess  
 from watchdog.events import PatternMatchingEventHandler
 

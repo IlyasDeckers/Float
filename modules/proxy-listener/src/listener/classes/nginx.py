@@ -23,7 +23,7 @@ class Nginx():
 
             config = template.format(ip = '0.0.0.0', 
                                      domain = domain, 
-                                     backend = '192.168.0.101', 
+                                     backend = '192.168.0.102', 
                                      port = vhost['ServicePort'])
 
             file = open(self.sites_enabled + domain + '.conf', 'w+')

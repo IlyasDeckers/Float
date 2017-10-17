@@ -1,0 +1,18 @@
+#!/bin/python
+
+import docker
+import consul
+import re
+import os
+
+def get_exposed_services():
+    client = docker.from_env()
+    services = client.services.list()
+
+    print services
+
+def register_service():
+    # register consul
+
+def deregister_services():
+    # deregister

@@ -56,5 +56,6 @@ logging.basicConfig(filename=config['settings']['log_file'],
                     datefmt='%m/%d/%Y  %H:%M:%S',
                     level=config['settings']['log_level'])
 
+Watcher().start()
 listener()
 
