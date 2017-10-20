@@ -1,61 +1,260 @@
 #!/usr/bin/python
 
+import logging
+from logging import handlers
+from logging.handlers import RotatingFileHandler
+
+from threading import Thread, Event
+
+from watchdog.observers import Observer
+from watchdog.events import PatternMatchingEventHandler 
+
+import requests
+from requests.exceptions import ConnectionError
+
 import os
+import sys
 import time
 import json
-import logging
 import subprocess
-from classes import Nginx, Consul, Config
-from watchers import Watcher
 
-def listener():
-    while True:
-        sites_enabled = Nginx().get_sites_enabled()
-        consul_vhosts = Consul().get_vhosts()
+LOGFILE = '/var/log/float/swarm-listener.log'
+log = logging.getLogger('')
+log.setLevel(logging.INFO)
+format = logging.Formatter('%(asctime)s [ %(levelname)s ] - %(message)s',)
 
-        for vhost in consul_vhosts:
-            Nginx().create_vhost(vhost, sites_enabled)
+ch = logging.StreamHandler(sys.stdout)
+ch.setFormatter(format)
+log.addHandler(ch)
+
+fh = handlers.RotatingFileHandler(LOGFILE, maxBytes=(1048576*5), backupCount=3)
+fh.setFormatter(format)
+log.addHandler(fh)
+
+logging.getLogger("requests").setLevel(logging.WARNING)
+
+class Config():
+  def __init__(self):
+    self.config_file = '/etc/float/config.json'
+
+  def read(self):
+    o = open(self.config_file)
+    with o as json_data_file:
+        data = json.load(json_data_file)
+    return data
+    o.close()
+
+class Watcher():
+  def start(self):
+    logging.info('Starting proxy listener')
+    observer = Observer()
+    observer.schedule(VhostHandler(), path='/etc/nginx/sites-enabled/')
+    observer.schedule(SslHandler(), path='/etc/nginx/ssl/', recursive=True)
+    observer.start()
+    logging.info('Nginx vhost watcher started')
+    logging.info('Nginx certificate watcher started')
+
+class SslHandler(PatternMatchingEventHandler):
+    patterns = ["*.pem", "*.crt", ".key"]
+
+    def process(self, event):
+        logging.info('SSL certificate updated, reloading nginx')
+        time.sleep(2)
+        Nginx().reload()
+
+    def on_modified(self, event):
+        self.process(event)
+
+    def on_deleted(self,event):
+        self.process(event)
+
+class VhostHandler(PatternMatchingEventHandler):
+    patterns = ["*.conf", "*.cnf"]
+
+    def process(self, event):
+        logging.info('Vhost configuration has changed reloading Nginx')
+        time.sleep(2)
+        Nginx().reload()
+
+    def on_modified(self, event):
+        self.process(event)
+
+    def on_deleted(self,event):
+        self.process(event)
+
+class Consul():
+    def __init__(self, address="127.0.0.1", port="8500"):
+        config = Config().read()['consul']
+        self.api_url = 'http://' + config['host'] + ':' + config['port']
+
+        self.port = port
+        self.address = address
+        # self.c = self.connect()
+        
+    def connect(self, path):
+        try:
+            return requests.get(self.api_url + path)
+        except ConnectionError:
+            logging.info('Can not connect to Consul backend using %s; Exiting.', self.api_url)
+            sys.exit(1)
+
+    def get_vhosts(self):
+        response = self.connect("/v1/catalog/service/nginx").json() + self.connect("/v1/catalog/service/wordpress").json() + self.connect("/v1/catalog/service/proxmox-lxc").json()
+        return response
+
+    def register_service(self, service_name, vmid, port, address, tags):
+        # register(name, service_id=None, address=None, port=None, tags=None, check=None, token=None, script=None, interval=None, ttl=None, http=None, timeout=None, enable_tag_override=False)
+        self.c.agent.service.register(service_name, 
+                                  service_id=vmid, 
+                                  port=port, 
+                                  address=address,
+                                  tags=[tags])
+
+class Nginx():
+    def __init__(self):
+        self.sites_enabled = '/etc/nginx/sites-enabled/'
+
+    def reload(self):
+        subprocess.call(['nginx', '-s', 'reload'])
+
+    def create_vhost(self, vhost, vhostConf):
+        template = '/etc/nginx/proxy-templates/vhost.conf'
+        domain = vhost['ServiceTags'][0].split(' ',1)[0]
+        
+        # Create vhost if it does not exist in nginx
+        if domain + '.conf' not in vhostConf:
+            logging.info('Creating vhost ' + domain + '.conf')
+            Certificates(domain).add_temp_cert()
+            # self.letsencrypt(domain)
+            template = open(template,'r').read()
+
+            config = template.format(ip = '0.0.0.0', 
+                                     domain = domain, 
+                                     backend = '192.168.0.102', 
+                                     port = vhost['ServicePort'])
+
+            file = open(self.sites_enabled + domain + '.conf', 'w+')
+            file.write(config)
+            file.close()
+
+    def delete_vhost(self, vhosts):
+        for vhost in vhosts:
+            logging.info('Removing ' + vhost)
+            os.remove(self.sites_enabled + vhost)
+            Certificates(vhost.replace('.conf', '')).delete_cert()
             
 
-        consul_domains = []
-        for vhost in consul_vhosts:
-            domain = vhost['ServiceTags'][0]
-            consul_domains.append(domain)
+    def get_sites_enabled(self):
+        '''
+        Return a list of available vhost files in nginx
+        '''
+        return [x for x in os.listdir(self.sites_enabled) if x.endswith(".conf")]
 
-        consul_domains = map(( lambda x: x + '.conf'), consul_domains)
+class Certificates():
+    def __init__(self, domain):
+        self.domain = domain
+        self.sslpath = '/etc/nginx/ssl'
+        self.cert = '{}/{}/cert.pem'.format(self.sslpath, self.domain)
+        self.privkey = '{}/{}/privkey.pem'.format(self.sslpath, self.domain)
 
-        if sites_enabled != consul_domains:
-          delete_vhost = sorted(set(sites_enabled) - set(consul_domains))
+    def add_temp_cert(self):
+        '''
+        Create a symbolic link to provide a temporary ssl certificate 
+        for the new vhost untill a valid one has been installed
+        '''
+        if not os.path.isfile(self.cert) or not os.path.isfile(self.privkey):
+            logging.info('Installing temporary SSL certificate for %s.', self.domain)
+
+            cmd = [ 
+                'mkdir -p /etc/nginx/ssl/{}'.format(self.domain), 
+                'ln -s {}/nginx.crt {}'.format(self.sslpath, self.cert),
+                'ln -s {}/nginx.key {}'.format(self.sslpath, self.privkey)
+            ]
+            
+            execute_cmd(cmd)
         else:
-          delete_vhost = []
+            logging.info('Temporary certificate already present for %s.', self.domain)
 
-        if delete_vhost != []:
-            Nginx().delete_vhost(delete_vhost)
+    # def add_letsencrypt_cert(self):
+    #     '''
+    #     Create a symbolic link to /etc/nginx/ssl for the obtained ssl certificate
+    #     '''
+    #     if os.path.isfile('/etc/letsencrypt/live/' + self.domain + '/cert.pem') or os.path.isfile('/etc/letsencrypt/live/' + self.domain + '/privkey.pem'):
+    #         cmd = [
+    #             'rm -f {}/{}/*'.format(self.sslpath, self.domain),
+    #             'ln -s /etc/letsencrypt/live/{}/cert.pem {}/{}/cert.pem'.format(self.domain,self.sslpath,self.domain),
+    #             'ln -s /etc/letsencrypt/live/' + self.domain + '/privkey.pem /etc/nginx/ssl/' + self.domain + '/privkey.pem'
+    #         ]
+    #         execute_cmd(cmd)
 
-        time.sleep(5)
+    def delete_cert(self):
+        try:
+            os.unlink(self.cert)
+        except OSError as e:
+            logging.info('Exception: %s', e)
 
-    observer.join()
+        try:
+            os.unlink(self.privkey)
+        except OSError as e:
+            logging.info('Exception: %s', e)
 
-config = Config().read()
-logging.basicConfig(filename=config['settings']['log_file'],
-                    filemode='a',
-                    format='%(asctime)s [ %(levelname)s ] - %(message)s',
-                    datefmt='%m/%d/%Y  %H:%M:%S',
-                    level=config['settings']['log_level'])
-logging.info('PROXY-LISTENER: Starting proxy listener.')
+        execute_cmd(['rm -f {}/{}/*'.format(self.sslpath, self.domain)])
 
-''' Create a pid file '''
-f = open('/tmp/proxy-listener.pid', 'w')
-f.write(str(os.getpid()))
-f.close()
+def listener():
+    try:
+        while True:
+            sites_enabled = Nginx().get_sites_enabled()
+            consul_vhosts = Consul().get_vhosts()
 
-config = Config().read()
-logging.basicConfig(filename=config['settings']['log_file'],
-                    filemode='a',
-                    format='%(asctime)s [ %(levelname)s ] - %(message)s',
-                    datefmt='%m/%d/%Y  %H:%M:%S',
-                    level=config['settings']['log_level'])
+            for vhost in consul_vhosts:
+                Nginx().create_vhost(vhost, sites_enabled)
+                
+            consul_domains = []
+            for vhost in consul_vhosts:
+                domain = vhost['ServiceTags'][0]
+                consul_domains.append(domain)
 
-Watcher().start()
-listener()
+            consul_domains = map(( lambda x: x + '.conf'), consul_domains)
 
+            if sites_enabled != consul_domains:
+              delete_vhost = sorted(set(sites_enabled) - set(consul_domains))
+            else:
+              delete_vhost = []
+
+            if delete_vhost != []:
+                Nginx().delete_vhost(delete_vhost)
+
+            time.sleep(5)
+    except (KeyboardInterrupt, SystemExit):
+        logging.info('Stopping proxy listener')
+        sys.exit(1)
+
+def execute_cmd(commands):
+        response = subprocess.check_output(commands, shell=True)
+        try:
+            for command in commands:
+                response = subprocess.check_output(command, shell=True)
+                # result = [x for x in response.split("\n") if x]
+        except subprocess.CalledProcessError as e:
+            logging.info('Exception: %s', e)
+            return False
+
+def main():
+    run_event = Event()
+    run_event.set()
+
+    w_events = Thread(target=Watcher().start())
+    w_events.daemon = True
+    w_events.start()
+
+    w_events = Thread(target=listener())
+    w_events.daemon = True
+    w_events.start()
+
+if __name__ == '__main__':
+    ''' Create a pid file '''
+    f = open('/tmp/proxy-listener.pid', 'w')
+    f.write(str(os.getpid()))
+    f.close()
+    
+    main()

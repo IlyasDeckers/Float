@@ -1,7 +1,6 @@
 #!/bin/python
 
 from threading import Thread, Event
-from pygtail import Pygtail
 
 import logging
 from logging import handlers
@@ -69,7 +68,6 @@ class Docker():
                     line = json.loads(line)
                     self.filter(line)
         except Exception, e:
-            print "Exception: %s", e
             logging.error("Exception: %s", e)
 
     def service(self, service_id):
