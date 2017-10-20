@@ -11,11 +11,9 @@ import requests
 import docker
 import consul
 
-import numbers
 import json
 import time
 import sys
-import os
 
 LOGFILE = '/var/log/float/swarm-listener.log'
 log = logging.getLogger('')
@@ -58,11 +56,7 @@ class Consul():
     def register_service(
        self, service_name, service_id, port, address, tags):
         # register(name, service_id=None, address=None, port=None, tags=None, check=None, token=None, script=None, interval=None, ttl=None, http=None, timeout=None, enable_tag_override=False)
-        self.c.agent.service.register(service_name, 
-                                  service_id=service_id, 
-                                  port=port, 
-                                  address=address,
-                                  tags=tags)
+        self.c.agent.service.register(service_name, service_id=service_id,  port=port, address=address, tags=tags)
 
 class Docker():
     def __init__(self):
@@ -102,10 +96,6 @@ class Registrator():
         t_events.daemon = True
         t_events.start()
 
-        while True:
-            self.check_dangling_services()
-            time.sleep(30)
-
     def create(self, event):
         service = Docker().service(event['Actor']['ID'])
         labels = service.attrs['Spec']['Labels']
@@ -125,11 +115,9 @@ class Registrator():
                 if p['TargetPort'] == 80:
                     port = p['PublishedPort']
 
-        Consul().register_service(app, 
-                                  service.id, 
-                                  port, 
-                                  "192.168.0.102", 
-                                  tags)
+        addr = service.attrs['Endpoint']['VirtualIPs'][0]['Addr']
+
+        Consul().register_service(app, service.id, port, addr, tags)
 
     def check_dangling_services(self):
         d_services = []
@@ -152,12 +140,13 @@ class Registrator():
         Consul().deregister_service(service)
 
 def main():
-    logging.info('Starting swarm listener.')
+    logging.info('Starting swarm listener')
     Registrator().start()
+    Registrator().check_dangling_services()
 
     try:    
         while 1:
-            time.sleep(1)
+            time.sleep(10)
     except (KeyboardInterrupt, SystemExit):
         logging.info('Stopping swarm listener')
 
