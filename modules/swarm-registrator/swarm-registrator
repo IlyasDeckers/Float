@@ -1,18 +1,147 @@
 #!/bin/python
 
+from threading import Thread, Event
+from pygtail import Pygtail
+
+import logging
+from logging import handlers
+from logging.handlers import RotatingFileHandler
+
+import requests
 import docker
 import consul
-import re
+import json
+import time
+import sys
 import os
 
-def get_exposed_services():
-    client = docker.from_env()
-    services = client.services.list()
+# file_handler = logging.FileHandler(filename='/var/log/float/swarm-listener.log')
+# stdout_handler = logging.StreamHandler(sys.stdout)
+# handlers = [file_handler]
 
-    print services
+# logging.basicConfig(format='%(asctime)s [ %(levelname)s ] - %(message)s',
+#                     datefmt='%m/%d/%Y  %H:%M:%S',
+#                     level=logging.INFO,
+#                     handlers=handlers)
 
-def register_service():
-    # register consul
 
-def deregister_services():
-    # deregister
+LOGFILE = '/var/log/float/swarm-listener.log'
+log = logging.getLogger('')
+log.setLevel(logging.INFO)
+format = logging.Formatter('%(asctime)s [ %(levelname)s ] - %(message)s',)
+
+ch = logging.StreamHandler(sys.stdout)
+ch.setFormatter(format)
+log.addHandler(ch)
+
+fh = handlers.RotatingFileHandler(LOGFILE, maxBytes=(1048576*5), backupCount=3)
+fh.setFormatter(format)
+log.addHandler(fh)
+ 
+logging.getLogger("requests").setLevel(logging.WARNING)
+
+class Consul():
+    def __init__(self, address="localhost", port="8500"):
+        self.port = port
+        self.address = address
+        self.c = self.connect()
+        self.api_url = 'http://' + address + ':' + port
+
+    def connect(self):
+        return consul.Consul(self.address, self.port)
+
+    def test_connection(self):
+        self.c.agent.self()
+
+    def get_service(self, service):
+        self.c.catalog.service(service)
+
+    def deregister_service(self,service_id):
+        path = "/v1/agent/service/deregister/" + service_id
+        requests.put(self.api_url + path)
+
+    def register_service(
+       self, service_name, service_id, port, address, tags):
+        # register(name, service_id=None, address=None, port=None, tags=None, check=None, token=None, script=None, interval=None, ttl=None, http=None, timeout=None, enable_tag_override=False)
+        self.c.agent.service.register(service_name, 
+                                  service_id=service_id, 
+                                  port=port, 
+                                  address=address,
+                                  tags=tags)
+
+class Docker():
+    def __init__(self):
+        self.client = docker.from_env()
+
+    def events(self):
+        try:
+            for block in self.client.events(filters={'type': 'service'}):
+                for line in block.splitlines():
+                    line = json.loads(line)
+                    self.filter(line)
+        except Exception, e:
+            print "Exception: %s", e
+            logging.error("Exception: %s", e)
+
+    def service(self, service_id):
+        return self.client.services.get(service_id)
+
+    def filter(self, event):
+        service_name = event['Actor']['Attributes']['name']
+        if event['Action'] == 'update':
+            logging.info('Docker event (update) on %s', service_name)
+            Registrator().create(event)
+        if event['Action'] == 'remove':
+            logging.info('Docker event (remove) on %s', service_name)
+            Registrator().delete(event)
+
+class Registrator():
+    def start(self):
+        run_event = Event()
+        run_event.set()
+
+        t_events = Thread(target=Docker().events)
+        t_events.daemon = True
+        t_events.start()
+
+    def create(self, event):
+        service = Docker().service(event['Actor']['ID'])
+        labels = service.attrs['Spec']['Labels']
+
+        if 'com.float.tags' in labels:
+            tags = labels['com.float.tags'].split(',')
+        else:
+            tags = []
+        if 'com.float.app' in labels:
+            app = labels['com.float.app'].split(',')[0]
+        else:
+            app = []
+        if 'com.float.port' in labels:
+            port = labels['com.float.port'].split(',')[0]
+            for p in service.attrs['Endpoint']['Ports']:
+                if p == "80":
+                    port = p['PublishedPort']
+        else:
+            port = []
+
+        Consul().register_service(app, 
+                                  service.id, 
+                                  port, 
+                                  "192.168.0.102", 
+                                  tags)
+
+    def delete(self, event):
+        Consul().deregister_service(event['Actor']['ID'])
+
+def main():
+    logging.info('Starting swarm listener.')
+    Registrator().start()
+
+    try:    
+        while 1:
+            time.sleep(1)
+    except (KeyboardInterrupt, SystemExit):
+        logging.info('Stopping swarm listener')
+
+if __name__ == '__main__':
+    main()
