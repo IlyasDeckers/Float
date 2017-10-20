@@ -10,6 +10,8 @@ from logging.handlers import RotatingFileHandler
 import requests
 import docker
 import consul
+
+import numbers
 import json
 import time
 import sys
@@ -43,8 +45,11 @@ class Consul():
     def test_connection(self):
         self.c.agent.self()
 
+    def get_services(self):
+        return self.c.catalog.services()
+
     def get_service(self, service):
-        self.c.catalog.service(service)
+        return self.c.catalog.service(service)
 
     def deregister_service(self,service_id):
         path = "/v1/agent/service/deregister/" + service_id
@@ -76,6 +81,9 @@ class Docker():
     def service(self, service_id):
         return self.client.services.get(service_id)
 
+    def services(self):
+        return self.client.services.list()
+
     def filter(self, event):
         service_name = event['Actor']['Attributes']['name']
         if event['Action'] == 'update':
@@ -83,7 +91,7 @@ class Docker():
             Registrator().create(event)
         if event['Action'] == 'remove':
             logging.info('Docker event (remove) on %s', service_name)
-            Registrator().delete(event)
+            Registrator().delete(event['Actor']['ID'])
 
 class Registrator():
     def start(self):
@@ -93,6 +101,10 @@ class Registrator():
         t_events = Thread(target=Docker().events)
         t_events.daemon = True
         t_events.start()
+
+        while True:
+            self.check_dangling_services()
+            time.sleep(30)
 
     def create(self, event):
         service = Docker().service(event['Actor']['ID'])
@@ -108,11 +120,10 @@ class Registrator():
             app = []
         if 'com.float.port' in labels:
             port = labels['com.float.port'].split(',')[0]
-            for p in service.attrs['Endpoint']['Ports']:
-                if p == "80":
-                    port = p['PublishedPort']
         else:
-            port = []
+            for p in service.attrs['Endpoint']['Ports']:
+                if p['TargetPort'] == 80:
+                    port = p['PublishedPort']
 
         Consul().register_service(app, 
                                   service.id, 
@@ -120,8 +131,25 @@ class Registrator():
                                   "192.168.0.102", 
                                   tags)
 
-    def delete(self, event):
-        Consul().deregister_service(event['Actor']['ID'])
+    def check_dangling_services(self):
+        d_services = []
+        for s in Docker().services():
+            d_services.append(Docker().service(s.id).id)
+
+        c_services = []
+        for s in Consul().get_services()[1:]:
+            for x in s:
+                if x != 'consul':
+                    service = Consul().get_service(x)
+                    for i in service[1:][0]:
+                        c_services.append(i['ServiceID'])
+
+        for service in sorted(set(c_services) - set(d_services)):
+            logging.info('Found a dangling service %s in consul. Deleting', service)
+            self.delete(service)
+
+    def delete(self, service):
+        Consul().deregister_service(service)
 
 def main():
     logging.info('Starting swarm listener.')
