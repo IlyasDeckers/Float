@@ -30,6 +30,7 @@ Comming Soon
   - https://www.consul.io/api/index.html
 
 ## Storage
+ - http://docs.ceph.com/docs/master/
  - https://github.com/libopenstorage/openstorage
  - https://github.com/portworx/torpedo
 
