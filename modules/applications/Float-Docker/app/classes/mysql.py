@@ -15,7 +15,7 @@ class Mysql():
                             datefmt='%m/%d/%Y  %H:%M:%S',
                             level=logging.DEBUG)
 
-        self.db = MySQLdb.connect(host="localhost", user="root", passwd="x3tjVsnfWs8K")
+        self.db = MySQLdb.connect(host="localhost", user="root", passwd="xxx")
 
     def create_database(self, database, database_user, password):
         query = "create database if not exists " + database + ";"
