@@ -18,3 +18,19 @@ Comming Soon
 
 ## Full setup
 Comming Soon
+
+# Links
+
+## Docker
+  - https://github.com/docker/docker-py
+  - https://docs.docker.com/
+
+## Consul
+  - https://www.consul.io/docs/index.html
+  - https://www.consul.io/api/index.html
+
+## Storage
+ - http://docs.ceph.com/docs/master/
+ - https://github.com/libopenstorage/openstorage
+ - https://github.com/portworx/torpedo
+
