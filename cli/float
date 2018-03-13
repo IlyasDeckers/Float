@@ -1,0 +1,59 @@
+#!/bin/python
+
+"""
+float
+
+Usage:
+  float monitor (all|proxy|osd)
+  float install 
+  float -h | --help
+  float --version
+Options:
+  -h --help                         Show help.
+  --version                         Show version.
+Examples:
+  float install master
+Help:
+  For help using this tool, please open an issue on the Github repository:
+  https://github.com/IlyasDeckers/Float
+"""
+import sys
+import json
+from docopt import docopt
+
+from inspect import getmembers, isclass
+
+import logging
+from logging import handlers
+from logging.handlers import RotatingFileHandler
+
+LOGFILE = '/var/log/float/float.log'
+log = logging.getLogger('')
+log.setLevel(logging.INFO)
+format = logging.Formatter('%(asctime)s [ %(levelname)s ] - %(message)s',)
+
+ch = logging.StreamHandler(sys.stdout)
+ch.setFormatter(format)
+log.addHandler(ch)
+
+fh = handlers.RotatingFileHandler(LOGFILE, maxBytes=(1048576*5), backupCount=3)
+fh.setFormatter(format)
+log.addHandler(fh)
+
+def main():
+    """Main CLI entrypoint."""
+    import commands
+    options = docopt(__doc__, version="0.1")
+
+    # Here we'll try to dynamically match the command the user is trying to run
+    # with a pre-defined command class we've already created.
+    for (k, v) in options.items(): 
+        if hasattr(commands, k) and v:
+            module = getattr(commands, k)
+            commands = getmembers(module, isclass)
+            command = [command[1] for command in commands if command[0] != 'Base'][0]
+            command = command(options)
+            command.run()
+
+if __name__ == '__main__':
+    main()

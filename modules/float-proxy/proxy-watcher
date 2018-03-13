@@ -1,0 +1,91 @@
+#!/bin/python
+
+import os
+import sys
+import time
+import subprocess
+
+import logging
+from logging import handlers
+from logging.handlers import RotatingFileHandler
+
+from threading import Thread, Event
+
+from watchdog.observers import Observer
+from watchdog.events import PatternMatchingEventHandler 
+
+LOGFILE = '/var/log/float/proxy-watcher.log'
+log = logging.getLogger('')
+log.setLevel(logging.INFO)
+format = logging.Formatter('%(asctime)s [ %(levelname)s ] - %(message)s',)
+
+ch = logging.StreamHandler(sys.stdout)
+ch.setFormatter(format)
+log.addHandler(ch)
+
+fh = handlers.RotatingFileHandler(LOGFILE, maxBytes=(1048576*5), backupCount=3)
+fh.setFormatter(format)
+log.addHandler(fh)
+
+logging.getLogger("requests").setLevel(logging.WARNING)
+
+class Watcher():
+  def start(self):
+    logging.info('Starting proxy watchers')
+    observer = Observer()
+    observer.schedule(VhostHandler(), path='/etc/nginx/sites-enabled/')
+    observer.schedule(SslHandler(), path='/etc/nginx/ssl/', recursive=True)
+    observer.start()
+    logging.info('Nginx vhost watcher started')
+    logging.info('Nginx certificate watcher started')
+
+class SslHandler(PatternMatchingEventHandler):
+    patterns = ["*.pem", "*.crt", ".key"]
+
+    def process(self, event):
+        logging.info('SSL certificate updated, reloading nginx')
+        time.sleep(2)
+        Nginx().reload()
+
+    def on_modified(self, event):
+        self.process(event)
+
+    def on_deleted(self,event):
+        self.process(event)
+
+class VhostHandler(PatternMatchingEventHandler):
+    patterns = ["*.conf", "*.cnf"]
+
+    def process(self, event):
+        logging.info('Vhost configuration has changed reloading Nginx')
+        time.sleep(2)
+        Nginx().reload()
+
+    def on_modified(self, event):
+        self.process(event)
+
+    def on_deleted(self,event):
+        self.process(event)
+
+class Nginx():
+    def reload(self):
+        subprocess.call(['nginx', '-s', 'reload'])
+
+def main():
+    run_event = Event()
+    run_event.set()
+
+    w_events = Thread(target=Watcher().start())
+    w_events.daemon = True
+    w_events.start()
+
+    while True:
+        time.sleep(1)
+
+if __name__ == '__main__':
+    ''' Create a pid file '''
+    f = open('/tmp/proxy-watcher.pid', 'w')
+    f.write(str(os.getpid()))
+    f.close()
+    
+    main()

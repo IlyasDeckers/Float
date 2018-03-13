@@ -1,0 +1,9 @@
+osd:
+  cluster:
+    nodeid: "float00"
+    clusterid: "osd-storage"
+  drivers:
+      nfs:
+        server: "192.168.0.151"
+        path: "/var/nfs/docker/volumes"
+
