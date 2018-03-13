@@ -44,44 +44,6 @@ class Config():
     return data
     o.close()
 
-class Watcher():
-  def start(self):
-    logging.info('Starting proxy listener')
-    observer = Observer()
-    observer.schedule(VhostHandler(), path='/etc/nginx/sites-enabled/')
-    observer.schedule(SslHandler(), path='/etc/nginx/ssl/', recursive=True)
-    observer.start()
-    logging.info('Nginx vhost watcher started')
-    logging.info('Nginx certificate watcher started')
-
-class SslHandler(PatternMatchingEventHandler):
-    patterns = ["*.pem", "*.crt", ".key"]
-
-    def process(self, event):
-        logging.info('SSL certificate updated, reloading nginx')
-        time.sleep(2)
-        Nginx().reload()
-
-    def on_modified(self, event):
-        self.process(event)
-
-    def on_deleted(self,event):
-        self.process(event)
-
-class VhostHandler(PatternMatchingEventHandler):
-    patterns = ["*.conf", "*.cnf"]
-
-    def process(self, event):
-        logging.info('Vhost configuration has changed reloading Nginx')
-        time.sleep(2)
-        Nginx().reload()
-
-    def on_modified(self, event):
-        self.process(event)
-
-    def on_deleted(self,event):
-        self.process(event)
-
 class Consul():
     def __init__(self, address="127.0.0.1", port="8500"):
         config = Config().read()['consul']
@@ -240,10 +202,6 @@ def execute_cmd(commands):
 def main():
     run_event = Event()
     run_event.set()
-
-    w_events = Thread(target=Watcher().start())
-    w_events.daemon = True
-    w_events.start()
 
     w_events = Thread(target=listener())
     w_events.daemon = True

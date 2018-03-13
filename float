@@ -1,18 +1,82 @@
 #!/usr/bin/python 
 
+import os
 import sys
 import argparse
+import logging
+from logging import handlers
+from logging.handlers import RotatingFileHandler
 import subprocess
+LOGFILE = '/var/log/float/float.log'
+log = logging.getLogger('')
+log.setLevel(logging.INFO)
+format = logging.Formatter('%(asctime)s [ %(levelname)s ] - %(message)s',)
 
+ch = logging.StreamHandler(sys.stdout)
+ch.setFormatter(format)
+log.addHandler(ch)
+
+fh = handlers.RotatingFileHandler(LOGFILE, maxBytes=(1048576*5), backupCount=3)
+fh.setFormatter(format)
+log.addHandler(fh)
+
+def execute_cmd(commands):
+    try:
+        for command in commands:
+            subprocess.check_output(command, shell=True)
+    except subprocess.CalledProcessError as e:
+        logging.info('Exception: %s', e)
+        return False
+
+if not os.path.isfile("/usr/bin/float"):
+    execute_cmd(['cp ./float /usr/bin/float', 'sudo chmod +x /usr/bin/float'])
+    sys.exit()
+
+class Install():
+    # def nginx():
+    #     pass
+
+    # def mysql():
+    #     pass
+
+    # def consul():
+    #     pass
+
+    def docker(self):
+        # Install docker
+        logging.info('Installing and configuring Docker Swarm')
+        execute_cmd([
+            'cd ~ && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add - && \
+            add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && \
+            apt-get update && apt-get install -y docker-ce'
+        ])
+        logging.info('Installation successfull')
+
+        # Create user
+        logging.info('Creating user float')
+        execute_cmd([
+            "useradd -p temppass -d /home/float -m -g users -s /bin/bash float",
+            "usermod -aG docker float",
+            "passwd -d float"
+        ])
+        logging.info('Adding user float to docker group')
+        logging.info('You can now log on using "sudo su float"')
+
+    # def nfs():
+    #     pass
+
+    # def osd():
+    #     pass
 
 parser=argparse.ArgumentParser(
-    description='''Shared web/application hosting using Docker Swarm as a backend. ''',
+    description='''Application hosting platform using Docker Swarm as a backend. ''',
     epilog="""All's well that ends well.""")
 # parser.add_argument('monitor', help="Show Float logs")
 parser.add_argument('--start', help='proxy-listener, proxy-api')
 parser.add_argument('--stop', help='proxy-listener, proxy-api')
 parser.add_argument('--reload', help='proxy-listener, proxy-api')
 parser.add_argument('--monitor', help='tail float logs',action='store_true')
+parser.add_argument('--install', help='Install float',action='store_true')
 args = parser.parse_args()
 
 try:
@@ -27,5 +91,8 @@ try:
 
     if args.monitor:
        subprocess.call(['sudo', 'tail', '-f', '/var/log/float/float.log'])
+
+    if args.install:
+        Install().docker()
 except KeyboardInterrupt:
     sys.exit(1)
