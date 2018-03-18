@@ -1,0 +1,28 @@
+sudo docker run \
+    --name osd \
+    --privileged \
+    -d \
+    --net host \
+    -v /tmp:/tmp \
+    -v /run/docker/plugins:/run/docker/plugins \
+    -v /var/lib/osd/:/var/lib/osd/ \
+    -v /etc/float/osd/:/etc/float/osd/ \
+    -l "com.float.ignore=true" \
+    -p 9005:9005 \
+    openstorage/osd -d -f /etc/float/osd/config.yaml --kvdb consul-kv://localhost:8500
+
+
+
+docker service create \
+    --mount type=volume,source=myvolume,target=/mnt,volume-driver=nfs \
+    --name myservice \
+    busybox
+
+    docker service create --mount type=volume,source=test,target=/mnt,volume-driver=nfs nginx
+
+
+docker service create -p :80 -p :443 --name app5_phase_be -l com.float.tags=app5.phase.be -l com.float.app=wordpress --mount type=volume,source=app5,target=/mnt,volume-driver=nfs nginx &&\
+docker service create -p :80 -p :443 --name app6_phase_be -l com.float.tags=app6.phase.be -l com.float.app=wordpress --mount type=volume,source=app6,target=/mnt,volume-driver=nfs nginx &&\
+docker service create -p :80 -p :443 --name app7_phase_be -l com.float.tags=app7.phase.be -l com.float.app=wordpress --mount type=volume,source=app7,target=/mnt,volume-driver=nfs nginx &&\
+docker service create -p :80 -p :443 --name app8_phase_be -l com.float.tags=app8.phase.be -l com.float.app=wordpress --mount type=volume,source=app8,target=/mnt,volume-driver=nfs nginx 
+
