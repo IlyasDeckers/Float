@@ -1,4 +1,5 @@
-WORK IN PROGRESS
+***!!DEPRECATED!!***
+Will be developed further in the near future.
 
 Disclaimer: Not for production use! This is a proof of concept. I might develop it further to a more robust platform.
 
